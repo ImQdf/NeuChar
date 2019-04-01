@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -57,7 +57,7 @@ namespace Senparc.NeuChar.Entities
         /// <summary>
         /// 消息创建时间
         /// </summary>
-        DateTime CreateTime { get; set; }
+        DateTimeOffset CreateTime { get; set; }
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ namespace Senparc.NeuChar.Entities
         /// <summary>
         /// 消息创建时间
         /// </summary>
-        public DateTime CreateTime { get; set; }
+        public DateTimeOffset CreateTime { get; set; }
 
         /// <summary>
         /// ToString() 方法重写

@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -29,6 +29,13 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
     
     修改标识：Senparc - 20150303
     修改描述：整理接口
+
+    修改标识：Senparc - 20181023
+    修改描述：修改 LastActiveTime 输出
+
+    修改标识：Senparc - 20181226
+    修改描述：v0.5.2 修改 DateTime 为 DateTimeOffset
+
 ----------------------------------------------------------------*/
 
 
@@ -42,7 +49,7 @@ namespace Senparc.NeuChar.Context
     /// <summary>
     /// 对话上下文被删除时触发事件的事件数据
     /// </summary>
-    public class WeixinContextRemovedEventArgs<TRequest,TResponse> : EventArgs
+    public class WeixinContextRemovedEventArgs<TRequest, TResponse> : EventArgs
         where TRequest : IRequestMessageBase
         where TResponse : IResponseMessageBase
     {
@@ -59,11 +66,11 @@ namespace Senparc.NeuChar.Context
         /// <summary>
         /// 最后一次响应时间
         /// </summary>
-        public DateTime LastActiveTime
+        public DateTimeOffset LastActiveTime
         {
             get
             {
-                return MessageContext.LastActiveTime;
+                return MessageContext.LastActiveTime.HasValue ? MessageContext.LastActiveTime.Value : DateTimeOffset.MinValue;
             }
         }
 

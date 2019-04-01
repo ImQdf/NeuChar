@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -40,6 +40,11 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
     修改标识：Senparc - 20170409
     修改描述：v4.12.4  MessageHandler基类默认开启消息去重
 
+    -- NeuChar --
+
+    修改标识：Senparc - 20181118
+    修改描述：v0.4.3 
+
 ----------------------------------------------------------------*/
 
 
@@ -50,17 +55,15 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
 
 using System;
 using System.IO;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Linq;
-using Senparc.CO2NET.Extensions;
-using Senparc.CO2NET.Helpers;
-using Senparc.CO2NET.Trace;
 using Senparc.CO2NET.Utilities;
 using Senparc.NeuChar.ApiHandlers;
 using Senparc.NeuChar.Context;
 using Senparc.NeuChar.Entities;
 using Senparc.NeuChar.Helpers;
+using Senparc.NeuChar.NeuralSystems;
+using Senparc.NeuChar.Exceptions;
+using Senparc.CO2NET.APM;
 
 namespace Senparc.NeuChar.MessageHandlers
 {
@@ -68,11 +71,14 @@ namespace Senparc.NeuChar.MessageHandlers
     /// 微信请求的集中处理方法
     /// 此方法中所有过程，都基于Senparc.NeuChar.基础功能，只为简化代码而设。
     /// </summary>
-    public abstract partial class MessageHandler<TC, TRequest, TResponse> : IMessageHandler<TRequest, TResponse>
+    public abstract partial class MessageHandler<TC, TRequest, TResponse> : IMessageHandlerWithContext<TC, TRequest, TResponse>
         where TC : class, IMessageContext<TRequest, TResponse>, new()
         where TRequest : IRequestMessageBase
         where TResponse : IResponseMessageBase
     {
+
+        #region 上下文
+
         ///// <summary>
         ///// 上下文
         ///// </summary>
@@ -88,6 +94,25 @@ namespace Senparc.NeuChar.MessageHandlers
         /// 全局消息上下文
         /// </summary>
         public abstract GlobalMessageContext<TC, TRequest, TResponse> GlobalMessageContext { get; }
+
+
+        /// <summary>
+        /// 当前用户消息上下文
+        /// </summary>
+        public virtual TC CurrentMessageContext { get { return GlobalMessageContext.GetMessageContext(RequestMessage); } }
+
+        /// <summary>
+        /// 忽略重复发送的同一条消息（通常因为微信服务器没有收到及时的响应）
+        /// </summary>
+        public bool OmitRepeatedMessage { get; set; }
+
+        /// <summary>
+        /// 消息是否已经被去重
+        /// </summary>
+        public bool MessageIsRepeated { get; set; }
+
+
+        #endregion
 
         /// <summary>
         /// 请求和响应消息有差别化的定义
@@ -124,53 +149,47 @@ namespace Senparc.NeuChar.MessageHandlers
             }
         }
 
+        private AppDataNode _currentAppDataNode;
         /// <summary>
-        /// 当前用户消息上下文
+        /// 当前 App 订阅信息
         /// </summary>
-        public virtual TC CurrentMessageContext
+        public AppDataNode CurrentAppDataNode
         {
-            get { return GlobalMessageContext.GetMessageContext(RequestMessage); }
+            get
+            {
+                if (_currentAppDataNode == null)
+                {
+                    //TODO:Neuchar：在这里先做一次NeuChar标准的判断
+
+                    var neuralSystem = NeuralSystem.Instance;
+                    //获取当前设置节点
+                    _currentAppDataNode = (neuralSystem.GetNode("AppDataNode") as AppDataNode) ?? new AppDataNode();
+                }
+                return _currentAppDataNode;  
+            }
+            set
+            {
+                _currentAppDataNode = value;
+            }
         }
 
 
         /// <summary>
         /// 发送者用户名（OpenId）
         /// </summary>
-        public string OpenId
-        {
-            get
-            {
-                if (RequestMessage != null)
-                {
-                    return RequestMessage.FromUserName;
-                }
-                return null;
-            }
-        }
+        public string OpenId { get { return RequestMessage != null ? RequestMessage.FromUserName : null; } }
 
         /// <summary>
         /// 发送者用户名（OpenId）
         /// </summary>
         [Obsolete("请使用OpenId")]
-        public string WeixinOpenId
-        {
-            get
-            {
-                return OpenId;
-            }
-        }
+        public string WeixinOpenId { get { return OpenId; } }
 
         /// <summary>
         /// 
         /// </summary>
         [Obsolete("UserName属性从v0.6起已过期，建议使用WeixinOpenId")]
-        public string UserName
-        {
-            get
-            {
-                return OpenId;
-            }
-        }
+        public string UserName { get { return OpenId; } }
 
         /// <summary>
         /// 取消执行Execute()方法。一般在OnExecuting()中用于临时阻止执行Execute()。
@@ -216,14 +235,21 @@ namespace Senparc.NeuChar.MessageHandlers
         public bool UsedMessageAgent { get; set; }
 
         /// <summary>
-        /// 忽略重复发送的同一条消息（通常因为微信服务器没有收到及时的响应）
+        /// 是否使用了加密消息格式
         /// </summary>
-        public bool OmitRepeatedMessage { get; set; }
+        public bool UsingEcryptMessage { get; set; }
+
 
         /// <summary>
-        /// 消息是否已经被去重
+        /// 原始的加密请求（如果不加密则为null）
         /// </summary>
-        public bool MessageIsRepeated { get; set; }
+        public XDocument EcryptRequestDocument { get; set; }
+
+        /// <summary>
+        /// 是否使用了兼容模式加密信息
+        /// </summary>
+        public bool UsingCompatibilityModelEcryptMessage { get; set; }
+
 
         private string _textResponseMessage = null;
 
@@ -264,18 +290,22 @@ namespace Senparc.NeuChar.MessageHandlers
             }
         }
 
+        public IEncryptPostModel PostModel { get; set; }
+
+        protected DateTimeOffset ExecuteStatTime { get; set; }
 
         /// <summary>
         /// 构造函数公用的初始化方法
         /// </summary>
         /// <param name="postDataDocument"></param>
         /// <param name="maxRecordCount"></param>
-        /// <param name="postData"></param>
-        public void CommonInitialize(XDocument postDataDocument, int maxRecordCount, object postData)
+        /// <param name="postModel"></param>
+        public void CommonInitialize(XDocument postDataDocument, int maxRecordCount, IEncryptPostModel postModel)
         {
             OmitRepeatedMessage = true;//默认开启去重
             GlobalMessageContext.MaxRecordCount = maxRecordCount;
-            RequestDocument = Init(postDataDocument, postData);
+            PostModel = postModel;//PostModel 在当前类初始化过程中必须赋值
+            RequestDocument = Init(postDataDocument, postModel);
         }
 
         /// <summary>
@@ -283,12 +313,12 @@ namespace Senparc.NeuChar.MessageHandlers
         /// </summary>
         /// <param name="inputStream"></param>
         /// <param name="maxRecordCount"></param>
-        /// <param name="postData">需要传入到Init的参数</param>
-        public MessageHandler(Stream inputStream, int maxRecordCount = 0, object postData = null)
+        /// <param name="postModel">需要传入到Init的参数</param>
+        public MessageHandler(Stream inputStream, IEncryptPostModel postModel, int maxRecordCount = 0)
         {
             var postDataDocument = XmlUtility.Convert(inputStream);
-
-            CommonInitialize(postDataDocument, maxRecordCount, postData);
+            //PostModel = postModel;//PostModel 在当前类初始化过程中必须赋值
+            CommonInitialize(postDataDocument, maxRecordCount, postModel);
         }
 
         /// <summary>
@@ -296,20 +326,21 @@ namespace Senparc.NeuChar.MessageHandlers
         /// </summary>
         /// <param name="postDataDocument"></param>
         /// <param name="maxRecordCount"></param>
-        /// <param name="postData">需要传入到Init的参数</param>
-        public MessageHandler(XDocument postDataDocument, int maxRecordCount = 0, object postData = null)
+        /// <param name="postModel">需要传入到Init的参数</param>
+        public MessageHandler(XDocument postDataDocument, IEncryptPostModel postModel, int maxRecordCount = 0)
         {
-            CommonInitialize(postDataDocument, maxRecordCount, postData);
+            //PostModel = postModel;//PostModel 在当前类初始化过程中必须赋值
+            CommonInitialize(postDataDocument, maxRecordCount, postModel);
         }
 
         /// <summary>
         /// <para>使用requestMessageBase的构造函数</para>
-        /// <para>次构造函数提供给具体的类库进行测试使用，例如Senparc.NeuChar.Work</para>
+        /// <para>此构造函数提供给具体的类库进行测试使用，例如Senparc.NeuChar.Work</para>
         /// </summary>
         /// <param name="requestMessageBase"></param>
         /// <param name="maxRecordCount"></param>
-        /// <param name="postData">需要传入到Init的参数</param>
-        public MessageHandler(RequestMessageBase requestMessageBase, int maxRecordCount = 0, object postData = null)
+        /// <param name="postModel">需要传入到Init的参数</param>
+        public MessageHandler(RequestMessageBase requestMessageBase, IEncryptPostModel postModel, int maxRecordCount = 0)
         {
             ////将requestMessageBase生成XML格式。
             //var xmlStr = XmlUtility.XmlUtility.Serializer(requestMessageBase);
@@ -318,18 +349,26 @@ namespace Senparc.NeuChar.MessageHandlers
             //CommonInitialize(postDataDocument, maxRecordCount, postData);
 
             //此方法不执行任何方法，提供给具体的类库进行测试使用，例如Senparc.NeuChar.Work
+
+            PostModel = postModel;//PostModel 在当前类初始化过程中必须赋值
         }
 
 
         /// <summary>
         /// 初始化，获取RequestDocument。
-        /// Init中需要对上下文添加当前消息（如果使用上下文）
+        /// Init中需要对上下文添加当前消息（如果使用上下文）；以及判断消息的加密情况，对解密信息进行解密
         /// </summary>
         /// <param name="requestDocument"></param>
-        public abstract XDocument Init(XDocument requestDocument, object postData = null);
+        /// <param name="postModel"></param>
+        public abstract XDocument Init(XDocument requestDocument, IEncryptPostModel postModel);
 
         //public abstract TR CreateResponseMessage<TR>() where TR : ResponseMessageBase;
 
+        /// <summary>
+        /// 根据当前的 RequestMessage 创建指定类型（RT）的 ResponseMessage
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <returns></returns>
         public virtual TR CreateResponseMessage<TR>() where TR : ResponseMessageBase
         {
             if (RequestMessage == null)
@@ -340,16 +379,70 @@ namespace Senparc.NeuChar.MessageHandlers
             return RequestMessage.CreateResponseMessage<TR>(this.MessageEntityEnlightener);
         }
 
-
+        /// <summary>
+        /// 在 Execute() 之前运行，可以使用 CancelExcute=true 中断后续 Execute() 和 OnExecuted() 方法的执行
+        /// </summary>
         public virtual void OnExecuting()
         {
         }
 
         /// <summary>
-        /// 执行微信请求
+        /// 执行微信请求（如果没有被 CancelExcute=true 中断）
         /// </summary>
-        public abstract void Execute();
+        public void Execute()
+        {
+            //进行 APM 记录
+            ExecuteStatTime = SystemTime.Now;
 
+            DataOperation apm = new DataOperation(PostModel?.DomainId);
+            apm.Set(NeuCharApmKind.Message_Request.ToString(), 1, tempStorage: OpenId);
+
+            if (CancelExcute)
+            {
+                return;
+            }
+
+            OnExecuting();
+
+            if (CancelExcute)
+            {
+                return;
+            }
+
+            try
+            {
+                if (RequestMessage == null)
+                {
+                    return;
+                }
+
+                BuildResponseMessage();
+
+                //记录上下文
+                //此处修改
+                if (MessageContextGlobalConfig.UseMessageContext && ResponseMessage != null && !string.IsNullOrEmpty(ResponseMessage.FromUserName))
+                {
+                    GlobalMessageContext.InsertMessage(ResponseMessage);
+                }
+                apm.Set(NeuCharApmKind.Message_SuccessResponse.ToString(), 1, tempStorage: OpenId);
+            }
+            catch (Exception ex)
+            {
+                apm.Set(NeuCharApmKind.Message_Exception.ToString(), 1, tempStorage: OpenId);
+                throw new MessageHandlerException("MessageHandler中Execute()过程发生错误：" + ex.Message, ex);
+            }
+            finally
+            {
+                OnExecuted();
+                apm.Set(NeuCharApmKind.Message_ResponseMillisecond.ToString(), (SystemTime.Now - this.ExecuteStatTime).TotalMilliseconds, tempStorage: OpenId);
+            }
+        }
+
+        public abstract void BuildResponseMessage();
+
+        /// <summary>
+        /// 在 Execute() 之后运行（如果没有被 CancelExcute=true 中断）
+        /// </summary>
         public virtual void OnExecuted()
         {
         }

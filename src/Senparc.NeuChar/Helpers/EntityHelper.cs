@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -49,6 +49,7 @@ using Senparc.CO2NET.Helpers;
 using Senparc.CO2NET.Utilities;
 using Senparc.NeuChar.Entities;
 using Senparc.NeuChar.MessageHandlers;
+using Senparc.NeuChar.NeuralSystems;
 
 namespace Senparc.NeuChar.Helpers
 {
@@ -77,7 +78,7 @@ namespace Senparc.NeuChar.Helpers
             {
                 if (!prop.CanWrite)
                 {
-                   continue;//如果不可读则跳过
+                    continue;//如果不可读则跳过
                 }
 
                 var propName = prop.Name;
@@ -88,6 +89,7 @@ namespace Senparc.NeuChar.Helpers
                         //case "String":
                         //    goto default;
                         case "DateTime":
+                        case "DateTimeOffset":
                         case "Int32":
                         case "Int64":
                         case "Double":
@@ -312,9 +314,13 @@ namespace Senparc.NeuChar.Helpers
         /// <typeparam name="T">RequestMessage或ResponseMessage</typeparam>
         /// <param name="entity">实体</param>
         /// <returns></returns>
-        public static XDocument ConvertEntityToXml<T>(this T entity) where T : class, new()
+        public static XDocument ConvertEntityToXml<T>(this T entity) where T : class
         {
-            entity = entity ?? new T();
+            //entity = entity ?? new T();
+            if (entity == null)
+            {
+                throw new Senparc.CO2NET.Exceptions.BaseException("entity 参数不能为 null");
+            }
 
             //XmlSerializer xmldes = new XmlSerializer(typeof(T));
 
@@ -423,7 +429,10 @@ namespace Senparc.NeuChar.Helpers
                             root.Add(new XElement(propName, new XCData(prop.GetValue(entity, null) as string ?? "")));
                             break;
                         case "DateTime":
-                            root.Add(new XElement(propName, DateTimeHelper.GetUnixDateTime((DateTime)prop.GetValue(entity, null))));
+                            root.Add(new XElement(propName, DateTimeHelper.GetUnixDateTime(((DateTime)prop.GetValue(entity, null)))));
+                            break;
+                        case "DateTimeOffset":
+                            root.Add(new XElement(propName, DateTimeHelper.GetUnixDateTime((DateTimeOffset)prop.GetValue(entity, null))));
                             break;
                         case "Boolean":
                             if (propName == "FuncFlag")
@@ -474,7 +483,7 @@ namespace Senparc.NeuChar.Helpers
         /// <typeparam name="T">RequestMessage或ResponseMessage</typeparam>
         /// <param name="entity">实体</param>
         /// <returns></returns>
-        public static string ConvertEntityToXmlString<T>(this T entity) where T : class, new()
+        public static string ConvertEntityToXmlString<T>(this T entity) where T : class
         {
             return entity.ConvertEntityToXml().ToString();
         }
@@ -497,10 +506,9 @@ namespace Senparc.NeuChar.Helpers
         /// </summary>
         /// <typeparam name="T">需要生成的ResponseMessage类型</typeparam>
         /// <param name="requestMessage">IRequestMessageBase接口下的接收信息类型</param>
-        /// <param name="enlighten">MessageEntityEnlighten，当 T 为接口时必须提供</param>
         /// <returns></returns>
         public static T CreateResponseMessage<T>(this IRequestMessageBase requestMessage)
-            where T :class, IResponseMessageBase //只有class才可以enlighten = null
+            where T : class, IResponseMessageBase //只有class才可以enlighten = null
         {
             return ResponseMessageBase.CreateFromRequestMessage<T>(requestMessage);
         }

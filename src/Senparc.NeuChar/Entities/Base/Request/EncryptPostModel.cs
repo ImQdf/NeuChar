@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -36,10 +36,15 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
 namespace Senparc.NeuChar
 {
     /// <summary>
-    /// 接收加密信息统一接口
+    /// 接收加密信息统一接口（同时也支持非加密信息）
     /// </summary>
     public interface IEncryptPostModel
     {
+        /// <summary>
+        /// 指定当前服务账号的唯一领域定义（主要为 APM 服务），例如 AppId
+        /// </summary>
+        string DomainId { get; set; }
+
         /// <summary>
         /// Signature
         /// </summary>
@@ -70,10 +75,15 @@ namespace Senparc.NeuChar
     }
 
     /// <summary>
-    /// 接收加密信息统一基类
+    /// 接收加密信息统一基类（同时也支持非加密信息）
     /// </summary>
-    public class EncryptPostModel : IEncryptPostModel
+    public abstract class EncryptPostModel : IEncryptPostModel
     {
+        /// <summary>
+        /// 指定当前服务账号的唯一领域定义（主要为 APM 服务），例如 AppId
+        /// </summary>
+       public abstract string DomainId { get; set; }
+
         /// <summary>
         /// Signature
         /// </summary>

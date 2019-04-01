@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -32,12 +32,17 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
     
     修改标识：Senparc - 20150708
     修改描述：完善备注
+    
+    修改标识：Senparc - 20181226
+    修改描述：v0.5.2 修改 DateTime 为 DateTimeOffset
+
 ----------------------------------------------------------------*/
 
 
 
 using System;
 using Senparc.NeuChar.Entities;
+using Senparc.NeuChar.NeuralSystems;
 
 namespace Senparc.NeuChar.Context
 {
@@ -57,7 +62,11 @@ namespace Senparc.NeuChar.Context
         /// <summary>
         /// 最后一次活动时间（用户主动发送Resquest请求的时间）
         /// </summary>
-        DateTime LastActiveTime { get; set; }
+        DateTimeOffset? LastActiveTime { get; set; }
+        /// <summary>
+        /// 本次活动时间（当前消息收到的时间）
+        /// </summary>
+        DateTimeOffset? ThisActiveTime { get; set; }
         /// <summary>
         /// 接收消息记录
         /// </summary>
@@ -85,6 +94,11 @@ namespace Senparc.NeuChar.Context
         /// </summary>
         AppStoreState AppStoreState { get; set; }
 
+        /// <summary>
+        /// 当前正在服务的 AppDataItem
+        /// </summary>
+        AppDataItem CurrentAppDataItem { get; set; }
+
         event EventHandler<WeixinContextRemovedEventArgs<TRequest, TResponse>> MessageContextRemoved;
 
         void OnRemoved();
@@ -100,7 +114,14 @@ namespace Senparc.NeuChar.Context
         private int _maxRecordCount;
 
         public string UserName { get; set; }
-        public DateTime LastActiveTime { get; set; }
+        /// <summary>
+        /// 最后一次活动时间（用户主动发送Resquest请求的时间）
+        /// </summary>
+        public DateTimeOffset? LastActiveTime { get; set; }
+        /// <summary>
+        /// 本次活动时间（当前消息收到的时间）
+        /// </summary>
+        public DateTimeOffset? ThisActiveTime { get; set; }
         public MessageContainer<TRequest> RequestMessages { get; set; }
         public MessageContainer<TResponse> ResponseMessages { get; set; }
         public int MaxRecordCount
@@ -127,6 +148,12 @@ namespace Senparc.NeuChar.Context
         public AppStoreState AppStoreState { get; set; }
 
         /// <summary>
+        /// 当前正在服务的 AppDataItem
+        /// </summary>
+        public AppDataItem CurrentAppDataItem { get; set; }
+
+
+        /// <summary>
         /// 当MessageContext被删除时触发的事件
         /// </summary>
         public virtual event EventHandler<WeixinContextRemovedEventArgs<TRequest, TResponse>> MessageContextRemoved = null;
@@ -149,7 +176,7 @@ namespace Senparc.NeuChar.Context
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="maxRecordCount">maxRecordCount如果小于等于0，则不限制</param>
+        ///// <param name="maxRecordCount">maxRecordCount如果小于等于0，则不限制</param>
         public MessageContext(/*MessageContainer<IRequestMessageBase> requestMessageContainer,
             MessageContainer<IResponseMessageBase> responseMessageContainer*/)
         {
@@ -161,7 +188,7 @@ namespace Senparc.NeuChar.Context
 
             RequestMessages = new MessageContainer<TRequest>(MaxRecordCount);
             ResponseMessages = new MessageContainer<TResponse>(MaxRecordCount);
-            LastActiveTime = DateTime.Now;
+            LastActiveTime = SystemTime.Now;
         }
 
         /// <summary>

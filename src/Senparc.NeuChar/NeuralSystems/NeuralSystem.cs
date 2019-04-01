@@ -2,6 +2,7 @@
 using Senparc.CO2NET.Helpers;
 using Senparc.CO2NET.Trace;
 using Senparc.CO2NET.Utilities;
+using Senparc.NeuChar.NeuralSystems;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -44,6 +45,12 @@ namespace Senparc.NeuChar
         /// 默认配置文件内容
         /// </summary>
         internal const string DEFAULT_CONFIG_FILE_CONENT = "{}";
+        internal const string CHECK_CNNECTION_RESULT = "OK";
+
+        /// <summary>
+        /// NeuChar 域名
+        /// </summary>
+        public string NeuCharDomainName { get; set; } = "https://www.neuchar.com";
 
         /// <summary>
         /// 根节点
@@ -155,6 +162,7 @@ namespace Senparc.NeuChar
         /// <para>TODO：建立索引搜索</para>
         /// </summary>
         /// <param name="name"></param>
+        /// <param name="parentNode">父节点</param>
         /// <returns></returns>
         public INeuralNode GetNode(string name, INeuralNode parentNode = null)
         {

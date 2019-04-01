@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -29,6 +29,10 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
     
     修改标识：Senparc - 20150303
     修改描述：整理接口
+    
+    修改标识：Senparc - 20181023
+    修改描述：修改 timeSpan 获取判断逻辑（firstMessageContext.LastActiveTime 已改为 DateTime? 类型）
+
 ----------------------------------------------------------------*/
 
 /*
@@ -167,7 +171,7 @@ namespace Senparc.NeuChar.Context
             while (MessageQueue.Count > 0)
             {
                 var firstMessageContext = MessageQueue[0];
-                var timeSpan = DateTime.Now - firstMessageContext.LastActiveTime;
+                var timeSpan = SystemTime.Now - (firstMessageContext.LastActiveTime.HasValue ? firstMessageContext.LastActiveTime.Value : SystemTime.Now);
                 //确定对话过期时间
                 var expireMinutes = firstMessageContext.ExpireMinutes.HasValue
                     ? firstMessageContext.ExpireMinutes.Value //队列自定义事件
@@ -282,7 +286,8 @@ namespace Senparc.NeuChar.Context
                     }
                 }
 
-                messageContext.LastActiveTime = DateTime.Now;//记录请求时间
+                messageContext.LastActiveTime = messageContext.ThisActiveTime;//记录上一次请求时间
+                messageContext.ThisActiveTime = SystemTime.Now;//记录本次请求时间
                 messageContext.RequestMessages.Add(requestMessage);//录入消息
             }
         }

@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -29,6 +29,12 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
     
     修改标识：Senparc - 20150303
     修改描述：整理接口
+
+    -- NeuChar --
+
+    修改标识：Senparc - 20181022
+    修改描述：添加 IMessageHandlerExtensionProperties 接口
+
 ----------------------------------------------------------------*/
 
 /*
@@ -37,18 +43,16 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
 
 using Senparc.NeuChar.ApiHandlers;
 using Senparc.NeuChar.Entities;
+using Senparc.NeuChar.NeuralSystems;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Senparc.NeuChar.MessageHandlers
 {
     /// <summary>
-    /// IMessageHandler接口
+    /// IMessageHandlerExtensionProperties 接口
     /// </summary>
-    /// <typeparam name="TRequest">IRequestMessageBase</typeparam>
-    /// <typeparam name="TResponse">IResponseMessageBase</typeparam>
-    public interface IMessageHandler<TRequest, TResponse> : IMessageHandlerDocument, IMessageHandlerEnlightener
-        where TRequest : IRequestMessageBase
-        where TResponse : IResponseMessageBase
+    public interface IMessageHandlerBase : IMessageHandlerEnlightener, IMessageHandlerNeuralNodes
     {
         /// <summary>
         /// 发送者用户名（OpenId）
@@ -64,20 +68,6 @@ namespace Senparc.NeuChar.MessageHandlers
         /// </summary>
         bool CancelExcute { get; set; }
 
-        /// <summary>
-        /// 请求实体
-        /// </summary>
-        TRequest RequestMessage { get; set; }
-        /// <summary>
-        /// 响应实体
-        /// 只有当执行Execute()方法后才可能有值
-        /// </summary>
-        TResponse ResponseMessage { get; set; }
-
-        /// <summary>
-        /// 是否使用了MessageAgent代理
-        /// </summary>
-        bool UsedMessageAgent { get; set; }
 
         /// <summary>
         /// 忽略重复发送的同一条消息（通常因为微信服务器没有收到及时的响应）
@@ -89,6 +79,26 @@ namespace Senparc.NeuChar.MessageHandlers
         /// </summary>
         bool MessageIsRepeated { get; set; }
 
+        /// <summary>
+        /// 是否使用了MessageAgent代理
+        /// </summary>
+        bool UsedMessageAgent { get; set; }
+
+        /// <summary>
+        /// 是否使用了加密消息格式
+        /// </summary>
+        bool UsingEcryptMessage { get; set; }
+
+        /// <summary>
+        /// 是否使用了兼容模式加密信息
+        /// </summary>
+        bool UsingCompatibilityModelEcryptMessage { get; set; }
+
+
+        /// <summary>
+        /// PostModel
+        /// </summary>
+        IEncryptPostModel PostModel { get; set; }
 
         #region 同步方法
 
@@ -98,9 +108,14 @@ namespace Senparc.NeuChar.MessageHandlers
         void OnExecuting();
 
         /// <summary>
-        /// 执行微信请求
+        /// 执行请求
         /// </summary>
         void Execute();
+
+        /// <summary>
+        /// 执行请求内部的消息整理逻辑
+        /// </summary>
+        void BuildResponseMessage();
 
         /// <summary>
         /// 执行微信请求后触发
@@ -114,21 +129,47 @@ namespace Senparc.NeuChar.MessageHandlers
         #region 异步方法
 
         /// <summary>
-        /// 执行微信请求前触发
+        /// 【异步方法】执行微信请求前触发
         /// </summary>
-        Task OnExecutingAsync();
+        Task OnExecutingAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// 执行微信请求
+        /// 【异步方法】执行微信请求
         /// </summary>
-        Task ExecuteAsync();
+        Task ExecuteAsync(CancellationToken cancellationToken);
+        /// <summary>
+        /// 执行请求内部的消息整理逻辑
+        /// </summary>
+        Task BuildResponseMessageAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// 执行微信请求后触发
+        /// 【异步方法】执行微信请求后触发
         /// </summary>
-        Task OnExecutedAsync();
+        Task OnExecutedAsync(CancellationToken cancellationToken);
 
         #endregion
 #endif
+
+    }
+
+    /// <summary>
+    /// IMessageHandler 接口
+    /// </summary>
+    /// <typeparam name="TRequest">IRequestMessageBase</typeparam>
+    /// <typeparam name="TResponse">IResponseMessageBase</typeparam>
+    public interface IMessageHandler<TRequest, TResponse> : IMessageHandlerDocument, IMessageHandlerBase
+        where TRequest : IRequestMessageBase
+        where TResponse : IResponseMessageBase
+    {
+        /// <summary>
+        /// 请求实体
+        /// </summary>
+        TRequest RequestMessage { get; set; }
+        /// <summary>
+        /// 响应实体
+        /// 只有当执行Execute()方法后才可能有值
+        /// </summary>
+        TResponse ResponseMessage { get; set; }
+
     }
 }

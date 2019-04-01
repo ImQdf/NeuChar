@@ -1,5 +1,7 @@
 ﻿using Senparc.CO2NET.Cache;
 using Senparc.CO2NET.Trace;
+using Senparc.NeuChar.ApiBind;
+using Senparc.NeuChar.NeuralSystems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,14 +26,14 @@ namespace Senparc.NeuChar
         /// </summary>
         public static Dictionary<string, Type> NeuralNodeRegisterCollection = new Dictionary<string, Type>();
 
-        /// <summary>
-        /// Api绑定信息集合
-        /// </summary>
-        public static Dictionary<string, ApiBindInfo> ApiBindInfoCollection = new Dictionary<string, ApiBindInfo>();
 
         static Register()
         {
             RegisterApiBind();
+
+            //注册节点类型
+           RegisterNeuralNode("MessageHandlerNode", typeof(MessageHandlerNode));
+           RegisterNeuralNode("AppDataNode", typeof(AppDataNode));
         }
 
 
@@ -50,7 +52,7 @@ namespace Senparc.NeuChar
         /// </summary>
         public static void RegisterApiBind()
         {
-            DateTime dt1 = DateTime.Now;
+            var dt1 = SystemTime.Now;
 
             var cacheStragegy = CacheStrategyFactory.GetObjectCacheStrategyInstance();
             using (cacheStragegy.BeginCacheLock("Senparc.NeuChar.Register", "RegisterApiBind"))
@@ -71,13 +73,13 @@ namespace Senparc.NeuChar
                     {
                         scanTypesCount++;
                         var classTypes = assembly.GetTypes()
-                                    .Where(z => z.Name.EndsWith("api", StringComparison.OrdinalIgnoreCase) || 
+                                    .Where(z => z.Name.EndsWith("api", StringComparison.OrdinalIgnoreCase) ||
                                                 z.Name.EndsWith("apis", StringComparison.OrdinalIgnoreCase))
                                     .ToArray();
 
                         foreach (var type in classTypes)
                         {
-                            if (/*type.IsAbstract || 静态类会被识别为 IsAbstract*/ 
+                            if (/*type.IsAbstract || 静态类会被识别为 IsAbstract*/
                                 !type.IsPublic || !type.IsClass || type.IsEnum)
                             {
                                 continue;
@@ -89,22 +91,20 @@ namespace Senparc.NeuChar
                                 var attrs = method.GetCustomAttributes(typeof(ApiBindAttribute), false);
                                 foreach (var attr in attrs)
                                 {
-                                    var apiBindAttr = attr as ApiBindAttribute;
-                                    var name = $"{apiBindAttr.Name}";//TODO：生成全局唯一名称
-                                    ApiBindInfoCollection.Add(name, new ApiBindInfo(apiBindAttr, method));
+                                    ApiBindInfoCollection.Instance.Add(method, attr as ApiBindAttribute);
                                 }
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        SenparcTrace.SendCustomLog("RegisterApiBind() 自动扫描程序集异常：" + assembly.FullName, ex.ToString());
+                        SenparcTrace.SendCustomLog("RegisterApiBind() 自动扫描程序集报告（非程序异常）：" + assembly.FullName, ex.ToString());
                     }
                 }
 
                 RegisterApiBindFinished = true;
 
-                DateTime dt2 = DateTime.Now;
+                var dt2 = SystemTime.Now;
                 Console.WriteLine($"RegisterApiBind 用时：{(dt2 - dt1).TotalMilliseconds}ms");
             }
         }

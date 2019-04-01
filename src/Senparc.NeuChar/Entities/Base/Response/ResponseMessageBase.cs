@@ -1,7 +1,7 @@
 ﻿#region Apache License Version 2.0
 /*----------------------------------------------------------------
 
-Copyright 2018 Jeffrey Su & Suzhou Senparc Network Technology Co.,Ltd.
+Copyright 2018 Suzhou Senparc Network Technology Co.,Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
 except in compliance with the License. You may obtain a copy of the License at
@@ -163,14 +163,14 @@ namespace Senparc.NeuChar.Entities
                 {
                     responseMessage.ToUserName = requestMessage.FromUserName;
                     responseMessage.FromUserName = requestMessage.ToUserName;
-                    responseMessage.CreateTime = DateTime.Now; //使用当前最新时间
+                    responseMessage.CreateTime = SystemTime.Now; //使用当前最新时间
                 }
 
                 return responseMessage;
             }
             catch (Exception ex)
             {
-                SenparcTrace.SendCustomLog("CreateFromRequestMessage异常调试",typeof(T).FullName);
+                SenparcTrace.SendCustomLog("CreateFromRequestMessage异常调试", typeof(T).FullName);
 
                 throw new BaseException("ResponseMessageBase.CreateFromRequestMessage<T>过程发生异常！", ex);
             }
@@ -180,6 +180,7 @@ namespace Senparc.NeuChar.Entities
         /// 从返回结果XML转换成IResponseMessageBase实体类
         /// </summary>
         /// <param name="xml">返回给服务器的Response Xml</param>
+        /// <param name="enlighten"></param>
         /// <returns></returns>
         public static IResponseMessageBase CreateFromResponseXml(string xml, MessageEntityEnlightener enlighten)
         {

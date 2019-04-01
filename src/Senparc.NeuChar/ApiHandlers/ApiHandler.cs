@@ -12,10 +12,13 @@ using System.Text;
 namespace Senparc.NeuChar.ApiHandlers
 {
     /// <summary>
-    /// 
+    /// ApiHandler
     /// </summary>
     public class ApiHandler
     {
+        /// <summary>
+        /// ApiEnlightener
+        /// </summary>
         public ApiEnlightener ApiEnlighten { get; set; }
 
         /// <summary>
@@ -31,11 +34,12 @@ namespace Senparc.NeuChar.ApiHandlers
         /// 执行API
         /// </summary>
         /// <param name="response"></param>
+        /// <param name="materialData"></param>
         /// <param name="requestMessage"></param>
         /// <param name="accessTokenOrAppId"></param>
         /// <param name="openId"></param>
         /// <returns></returns>
-        public ApiResult ExecuteApi(Response response, MaterialData materialData, IRequestMessageBase requestMessage, string accessTokenOrAppId, string openId)
+        public ApiResult ExecuteApi(Response response, MaterialData materialData, IRequestMessageBase requestMessage, string accessTokenOrAppId, string openId, IMessageHandlerEnlightener enlightener)
         {
             if (response == null)
             {
@@ -54,6 +58,17 @@ namespace Senparc.NeuChar.ApiHandlers
                         apiResult = ApiEnlighten.SendText(accessTokenOrAppId, openId, cotnent);
                         break;
                     case ResponseMsgType.News:
+                        {
+                            var articles = NeuralNodeHelper.FillNewsMessage(response.MaterialId/*"9DAAC45C|6309EAD9"*/, materialData);
+                            if (articles == null)
+                            {
+                                apiResult = ApiEnlighten.SendText(accessTokenOrAppId, openId, "您要查找的素材不存在，或格式定义错误！");
+                            }
+                            else
+                            {
+                                apiResult = ApiEnlighten.SendNews(accessTokenOrAppId, openId, articles);
+                            }
+                        }
                         break;
                     case ResponseMsgType.Music:
                         break;
